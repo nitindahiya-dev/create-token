@@ -1,11 +1,13 @@
 import Heading from "@/components/Heading";
-import UnderConstruction from "@/components/UnderConstruction";
+import { InputForm } from "@/components/InputForm";
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen flex-col gap-5 items-center justify-center">
+    <div className="flex min-h-screen flex-col gap-35   items-center justify-center">
+      <main className=" border m-auto rounded-xl p-10">
       <Heading />
-      <UnderConstruction />
+      <InputForm />
+      </main>
     </div>
   );
 }
