@@ -17,43 +17,17 @@ import {
   createInitializeMintInstruction
 } from "@solana/spl-token";
 import { createInitializeInstruction, pack } from '@solana/spl-token-metadata';
-import { Web3Storage } from 'web3.storage';
 
 export function InputForm() {
   const { connection } = useConnection();
   const wallet = useWallet();
-
-  // Web3.Storage API setup
-  const token = 'YOUR_WEB3_STORAGE_TOKEN'; // Add your Web3 Storage API token
-  const client = new Web3Storage({ token });
 
   // State for form inputs
   const [name, setName] = useState('');
   const [symbol, setSymbol] = useState('');
   const [decimals, setDecimals] = useState(9); // Default to 9
   const [supply, setSupply] = useState(0);
-  const [image, setImage] = useState<File | null>(null); // State for image
   const [errorMessage, setErrorMessage] = useState('');
-
-  // Function to handle image upload
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setImage(file);
-    }
-  };
-
-  // Function to upload image to Web3.Storage
-  const uploadImage = async (file: File): Promise<string | null> => {
-    try {
-      const imageCid = await client.put([file]); // Uploads the file to IPFS
-      const imageUrl = `https://${imageCid}.ipfs.dweb.link/${file.name}`; // Construct the IPFS URL
-      return imageUrl; // Returns the IPFS URL of the image
-    } catch (error) {
-      console.error("Image upload failed:", error);
-      return null;
-    }
-  };
 
   // Token creation function
   async function createToken() {
@@ -63,24 +37,15 @@ export function InputForm() {
         return;
       }
 
-      // Upload the image (if available) and get the URL
-      let imageUrl: string = 'https://cdn.100xdevs.com/metadata.json'; // Default fallback URL
-      if (image) {
-        const uploadedImageUrl = await uploadImage(image);
-        if (uploadedImageUrl) {
-          imageUrl = uploadedImageUrl;
-        } else {
-          setErrorMessage("Image upload failed. Cannot proceed.");
-          return;
-        }
-      }
+      // Default URL or you can handle image URL if needed
+      const imageUrl = 'https://cdn.100xdevs.com/metadata.json'; // Default fallback URL
 
       const mintKeypair = Keypair.generate();
       const metadata = {
         mint: mintKeypair.publicKey,
         name: name.trim(),
         symbol: symbol.trim(),
-        uri: imageUrl, // Uses uploaded image URL or fallback
+        uri: imageUrl, // Uses default fallback URL
         additionalMetadata: [],
       };
 
@@ -116,7 +81,7 @@ export function InputForm() {
           metadata: mintKeypair.publicKey,
           name: metadata.name,
           symbol: metadata.symbol,
-          uri: metadata.uri,  // Uses uploaded image URL
+          uri: metadata.uri,  // Uses default fallback URL
           mintAuthority: wallet.publicKey!,
           updateAuthority: wallet.publicKey!,
         })
@@ -237,7 +202,6 @@ export function InputForm() {
                 type="file"
                 className="h-12 border-0 cursor-pointer text-white"
                 placeholder="Image Upload"
-                onChange={handleImageUpload}
               />
               <p className="text-white text-sm absolute bottom-[-25px]">
                 <span className="text-red-600 font-extrabold">*</span> Most meme coins use a square 1000x1000 logo
