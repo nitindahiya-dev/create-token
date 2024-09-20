@@ -27,6 +27,7 @@ export function InputForm() {
   const [symbol, setSymbol] = useState('');
   const [decimals, setDecimals] = useState(9); // Default to 9
   const [supply, setSupply] = useState(0);
+  const [imageUrl, setImageUrl] = useState(''); // State for image URL
   const [errorMessage, setErrorMessage] = useState('');
 
   // Token creation function
@@ -37,31 +38,41 @@ export function InputForm() {
         return;
       }
 
-      // Default URL or you can handle image URL if needed
-      const imageUrl = 'https://cdn.100xdevs.com/metadata.json'; // Default fallback URL
-
+      // Generate a new keypair for the token mint
       const mintKeypair = Keypair.generate();
       const metadata = {
         mint: mintKeypair.publicKey,
         name: name.trim(),
         symbol: symbol.trim(),
-        uri: imageUrl, // Uses default fallback URL
+        uri: imageUrl || 'https://cdn.100xdevs.com/metadata.json',
         additionalMetadata: [],
       };
 
       const mintLen = getMintLen([ExtensionType.MetadataPointer]);
       const metadataLen = pack(metadata).length;
-
       const lamports = await connection.getMinimumBalanceForRentExemption(mintLen + metadataLen);
 
-      const transaction = new Transaction().add(
+      // Create the mint account transaction
+      const createMintTx = new Transaction().add(
         SystemProgram.createAccount({
           fromPubkey: wallet.publicKey!,
           newAccountPubkey: mintKeypair.publicKey,
           space: mintLen,
           lamports,
           programId: TOKEN_2022_PROGRAM_ID,
-        }),
+        })
+      );
+
+      createMintTx.feePayer = wallet.publicKey!;
+      createMintTx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+
+      // Sign with both the wallet and mint keypair
+      createMintTx.sign(mintKeypair);
+      await wallet.sendTransaction(createMintTx, connection, { signers: [mintKeypair] });
+      console.log(`Token mint account created at ${mintKeypair.publicKey.toBase58()}`);
+
+      // Initialize the mint and metadata pointer
+      const initializeMintTx = new Transaction().add(
         createInitializeMetadataPointerInstruction(
           mintKeypair.publicKey,
           wallet.publicKey!,
@@ -81,44 +92,45 @@ export function InputForm() {
           metadata: mintKeypair.publicKey,
           name: metadata.name,
           symbol: metadata.symbol,
-          uri: metadata.uri,  // Uses default fallback URL
+          uri: metadata.uri,
           mintAuthority: wallet.publicKey!,
           updateAuthority: wallet.publicKey!,
         })
       );
 
-      transaction.feePayer = wallet.publicKey!;
-      transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
-      transaction.partialSign(mintKeypair);
+      initializeMintTx.feePayer = wallet.publicKey!;
+      initializeMintTx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
 
-      // Send first transaction (mint creation)
-      await wallet.sendTransaction(transaction, connection);
-      console.log(`Token mint created at ${mintKeypair.publicKey.toBase58()}`);
+      // Sign with both the wallet and mint keypair
+      initializeMintTx.sign(mintKeypair);
+      await wallet.sendTransaction(initializeMintTx, connection, { signers: [mintKeypair] });
+      console.log("Mint initialized");
 
+      // Create the associated token account
       const associatedToken = getAssociatedTokenAddressSync(
         mintKeypair.publicKey,
         wallet.publicKey!,
         false,
-        TOKEN_2022_PROGRAM_ID,
+        TOKEN_2022_PROGRAM_ID
       );
-
-      console.log(associatedToken.toBase58());
-
-      // Create associated token account
-      const transaction2 = new Transaction().add(
+      const createTokenAccountTx = new Transaction().add(
         createAssociatedTokenAccountInstruction(
           wallet.publicKey!,
           associatedToken,
           wallet.publicKey!,
           mintKeypair.publicKey,
           TOKEN_2022_PROGRAM_ID
-        ),
+        )
       );
 
-      await wallet.sendTransaction(transaction2, connection);
+      createTokenAccountTx.feePayer = wallet.publicKey!;
+      createTokenAccountTx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+
+      await wallet.sendTransaction(createTokenAccountTx, connection);
+      console.log(`Associated token account created at ${associatedToken.toBase58()}`);
 
       // Mint tokens
-      const transaction3 = new Transaction().add(
+      const mintTokensTx = new Transaction().add(
         createMintToInstruction(
           mintKeypair.publicKey,
           associatedToken,
@@ -129,9 +141,12 @@ export function InputForm() {
         )
       );
 
-      await wallet.sendTransaction(transaction3, connection);
+      mintTokensTx.feePayer = wallet.publicKey!;
+      mintTokensTx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
 
-      console.log("Minted!");
+      await wallet.sendTransaction(mintTokensTx, connection);
+      console.log("Tokens minted!");
+
     } catch (error: unknown) {
       if (error instanceof Error) {
         console.error("Error during token creation:", error.message);
@@ -194,17 +209,18 @@ export function InputForm() {
                 onChange={(e) => setSupply(parseInt(e.target.value))}
               />
             </div>
-            <div className="flex flex-col space-y-1.5 relative">
+            <div className="flex flex-col space-y-1.5">
               <Label className="text-white font-bold text-sm">
-                <span className="text-red-600 mr-1">*</span>Images :
+                <span className="text-red-600 mr-1">*</span>Image URL :
               </Label>
               <Input
-                type="file"
-                className="h-12 border-0 cursor-pointer text-white"
-                placeholder="Image Upload"
+                className="h-12 text-white"
+                placeholder="Enter image URL"
+                value={imageUrl}
+                onChange={(e) => setImageUrl(e.target.value)}
               />
-              <p className="text-white text-sm absolute bottom-[-25px]">
-                <span className="text-red-600 font-extrabold">*</span> Most meme coins use a square 1000x1000 logo
+              <p className="text-white text-sm">
+                <span className="text-red-600 font-extrabold">*</span> Enter a valid image URL
               </p>
             </div>
           </div>
