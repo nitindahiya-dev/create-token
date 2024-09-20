@@ -63,10 +63,11 @@ export function InputForm() {
         })
       );
 
+      // Set feePayer and blockhash
       createMintTx.feePayer = wallet.publicKey!;
       createMintTx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
 
-      // Sign with both the wallet and mint keypair
+      // Sign with mintKeypair (Phantom will prompt wallet signature)
       createMintTx.sign(mintKeypair);
       await wallet.sendTransaction(createMintTx, connection, { signers: [mintKeypair] });
       console.log(`Token mint account created at ${mintKeypair.publicKey.toBase58()}`);
@@ -101,7 +102,7 @@ export function InputForm() {
       initializeMintTx.feePayer = wallet.publicKey!;
       initializeMintTx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
 
-      // Sign with both the wallet and mint keypair
+      // Sign and send the initialization transaction
       initializeMintTx.sign(mintKeypair);
       await wallet.sendTransaction(initializeMintTx, connection, { signers: [mintKeypair] });
       console.log("Mint initialized");
@@ -230,8 +231,11 @@ export function InputForm() {
         </form>
       </CardContent>
       <CardFooter className="flex items-center justify-center">
-        <Button variant={"secondary"} className="w-[200px] text-xl" onClick={createToken}>
-          Create Token
+        <Button
+          className="h-12 px-12 text-white bg-red-600 hover:bg-red-700"
+          onClick={createToken}
+        >
+          Create
         </Button>
       </CardFooter>
     </Card>
