@@ -33,127 +33,104 @@ export function InputForm() {
   // Token creation function
   async function createToken() {
     try {
-        if (!wallet.connected) {
-            setErrorMessage("Wallet not connected!");
-            return;
-        }
-
-        // Generate a new keypair for the token mint
-        const mintKeypair = Keypair.generate();
-        const metadata = {
-            mint: mintKeypair.publicKey,
-            name: name.trim(),
-            symbol: symbol.trim(),
-            uri: imageUrl || 'https://cdn.100xdevs.com/metadata.json',
-            additionalMetadata: [],
-        };
-
-        const mintLen = getMintLen([ExtensionType.MetadataPointer]);
-        const metadataLen = pack(metadata).length;
-        const lamports = await connection.getMinimumBalanceForRentExemption(mintLen + metadataLen);
-
-        // Create the mint account transaction
-        const createMintTx = new Transaction().add(
-            SystemProgram.createAccount({
-                fromPubkey: wallet.publicKey!,  // Wallet signs here
-                newAccountPubkey: mintKeypair.publicKey,  // MintKeypair is used for the new account
-                space: mintLen,
-                lamports,
-                programId: TOKEN_2022_PROGRAM_ID,
-            })
-        );
-
-        // Set feePayer and blockhash
-        createMintTx.feePayer = wallet.publicKey!;
-        createMintTx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
-
-        // Sign only with mintKeypair
-        createMintTx.partialSign(mintKeypair);
-
-        // Wallet sends the transaction (it will sign during send)
-        await wallet.sendTransaction(createMintTx, connection);
-        console.log(`Token mint account created at ${mintKeypair.publicKey.toBase58()}`);
-
-        // Initialize the mint and metadata pointer
-        const initializeMintTx = new Transaction().add(
-            createInitializeMetadataPointerInstruction(
-                mintKeypair.publicKey,  // MintKeypair for mint account
-                wallet.publicKey!,  // Wallet for authority
-                mintKeypair.publicKey,
-                TOKEN_2022_PROGRAM_ID
-            ),
-            createInitializeMintInstruction(
-                mintKeypair.publicKey,  // MintKeypair for the mint
-                decimals,
-                wallet.publicKey!,  // Wallet signs for mint authority
-                null,
-                TOKEN_2022_PROGRAM_ID
-            ),
-            createInitializeInstruction({
-                programId: TOKEN_2022_PROGRAM_ID,
-                mint: mintKeypair.publicKey,  // MintKeypair
-                metadata: mintKeypair.publicKey,  // MintKeypair
-                name: metadata.name,
-                symbol: metadata.symbol,
-                uri: metadata.uri,
-                mintAuthority: wallet.publicKey!,  // Wallet is mint authority
-                updateAuthority: wallet.publicKey!,  // Wallet is update authority
-            })
-        );
-
-        initializeMintTx.feePayer = wallet.publicKey!;
-        initializeMintTx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
-
-        // Sign only with mintKeypair
-        initializeMintTx.partialSign(mintKeypair);
-
-        // Wallet sends and signs the transaction
-        await wallet.sendTransaction(initializeMintTx, connection);
-        console.log("Mint initialized");
-
-        // Create the associated token account
-        const associatedToken = getAssociatedTokenAddressSync(
-            mintKeypair.publicKey,  // Token mint
-            wallet.publicKey!,  // Wallet for the owner
-            false,
-            TOKEN_2022_PROGRAM_ID
-        );
-        const createTokenAccountTx = new Transaction().add(
-            createAssociatedTokenAccountInstruction(
-                wallet.publicKey!,  // Wallet signs for its account
-                associatedToken,
-                wallet.publicKey!,  // Wallet owns the token account
-                mintKeypair.publicKey,  // Mint of the token
-                TOKEN_2022_PROGRAM_ID
-            )
-        );
-
-        createTokenAccountTx.feePayer = wallet.publicKey!;
-        createTokenAccountTx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
-
-        // Wallet sends and signs the transaction
-        await wallet.sendTransaction(createTokenAccountTx, connection);
-        console.log(`Associated token account created at ${associatedToken.toBase58()}`);
-
-        // Mint tokens to the associated token account
-        const mintTokensTx = new Transaction().add(
-            createMintToInstruction(
-                mintKeypair.publicKey,  // Mint
-                associatedToken,  // Associated token account
-                wallet.publicKey!,  // Wallet signs to mint the tokens
-                supply,
-                [],
-                TOKEN_2022_PROGRAM_ID
-            )
-        );
-
-        mintTokensTx.feePayer = wallet.publicKey!;
-        mintTokensTx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
-
-        // Wallet sends and signs the transaction
-        await wallet.sendTransaction(mintTokensTx, connection);
-        console.log("Tokens minted!");
-
+      if (!wallet.connected) {
+        setErrorMessage("Wallet not connected!");
+        return;
+      }
+  
+      const mintKeypair = Keypair.generate();
+      const metadata = {
+        mint: mintKeypair.publicKey,
+        name: name.trim(),
+        symbol: symbol.trim(),
+        uri: imageUrl || 'https://cdn.100xdevs.com/metadata.json',
+        additionalMetadata: [],
+      };
+  
+      const mintLen = getMintLen([ExtensionType.MetadataPointer]);
+      const metadataLen = pack(metadata).length;
+      const lamports = await connection.getMinimumBalanceForRentExemption(mintLen + metadataLen);
+      const createMintTx = new Transaction().add(
+        SystemProgram.createAccount({
+          fromPubkey: wallet.publicKey!,
+          newAccountPubkey: mintKeypair.publicKey,
+          space: mintLen,
+          lamports,
+          programId: TOKEN_2022_PROGRAM_ID,
+        })
+      );
+  
+      createMintTx.feePayer = wallet.publicKey!;
+      createMintTx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+  
+      // MintKeypair needs to sign this transaction
+      createMintTx.partialSign(mintKeypair);
+      // Wallet may still need to sign as feePayer
+      await wallet.sendTransaction(createMintTx, connection, { signers: [mintKeypair] });
+  
+      console.log(`Token mint account created at ${mintKeypair.publicKey.toBase58()}`);
+  
+      // Initialize mint and metadata pointer
+      const initializeMintTx = new Transaction().add(
+        createInitializeMetadataPointerInstruction(
+          mintKeypair.publicKey,
+          wallet.publicKey!,
+          mintKeypair.publicKey,
+          TOKEN_2022_PROGRAM_ID
+        ),
+        createInitializeMintInstruction(
+          mintKeypair.publicKey,
+          decimals,
+          wallet.publicKey!,
+          null,
+          TOKEN_2022_PROGRAM_ID
+        ),
+        createInitializeInstruction({
+          programId: TOKEN_2022_PROGRAM_ID,
+          mint: mintKeypair.publicKey,
+          metadata: mintKeypair.publicKey,
+          name: metadata.name,
+          symbol: metadata.symbol,
+          uri: metadata.uri,
+          mintAuthority: wallet.publicKey!,
+          updateAuthority: wallet.publicKey!,
+        })
+      );
+  
+      initializeMintTx.feePayer = wallet.publicKey!;
+      initializeMintTx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+  
+      // Sign with mintKeypair again, as it owns the mint
+      initializeMintTx.partialSign(mintKeypair);
+      await wallet.sendTransaction(initializeMintTx, connection, { signers: [mintKeypair] });
+  
+      console.log("Mint initialized");
+  
+      // Create associated token account
+      const associatedToken = getAssociatedTokenAddressSync(
+        mintKeypair.publicKey,
+        wallet.publicKey!,
+        false,
+        TOKEN_2022_PROGRAM_ID
+      );
+  
+      const createTokenAccountTx = new Transaction().add(
+        createAssociatedTokenAccountInstruction(
+          wallet.publicKey!,
+          associatedToken,
+          wallet.publicKey!,
+          mintKeypair.publicKey
+        )
+      );
+  
+      createTokenAccountTx.feePayer = wallet.publicKey!;
+      createTokenAccountTx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+  
+      // Include mintKeypair as a signer if required by any future steps
+      await wallet.sendTransaction(createTokenAccountTx, connection);
+  
+      console.log("Associated token account created:", associatedToken.toBase58());
+  
     } catch (error: unknown) {
         if (error instanceof Error) {
             console.error("Error during token creation:", error.message);
@@ -164,7 +141,6 @@ export function InputForm() {
         }
     }
 }
-
 
   return (
     <Card className="min-w-6xl bg-transparent">
