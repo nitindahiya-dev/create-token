@@ -11,6 +11,7 @@ import '@solana/wallet-adapter-react-ui/styles.css';
 import Heading from "@/components/Heading";
 import { InputForm } from "@/components/InputForm";
 
+
 export default function Home() {
   // Setting up the connection and wallets
   const network = clusterApiUrl('devnet'); // You can change 'devnet' to 'mainnet-beta' or 'testnet'
@@ -29,8 +30,8 @@ export default function Home() {
           <div className="absolute top-5 right-5">
             <WalletMultiButton />
           </div>
-          <div className="flex min-h-screen flex-col gap-35 items-center justify-center">
-            <main className="border m-auto rounded-xl p-10">
+          <div className="flex min-h-screen mt-20 mx-10">
+            <main className="border m-auto rounded-xl py-10 px-5 ">
               <Heading />
               <InputForm />
               <div className="mt-4">
