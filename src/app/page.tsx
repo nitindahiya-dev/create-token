@@ -30,12 +30,11 @@ export default function Home() {
           <div className="absolute top-5 right-5">
             <WalletMultiButton />
           </div>
-          <div className="flex min-h-screen mt-20 mx-10">
+          <div className="flex min-h-screen mt-5 mx-10">
             <main className="border m-auto rounded-xl py-10 px-5 ">
               <Heading />
               <InputForm />
-              <div className="mt-4">
-              </div>
+              
             </main>
           </div>
         </WalletModalProvider>

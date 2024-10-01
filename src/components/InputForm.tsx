@@ -32,58 +32,72 @@ export function InputForm() {
   // const notifyInfo = (message: string) => toast.info(message);
 
   // Token creation function
-  async function createToken() {
-    try {
-      if (!wallet.connected) {
-        setErrorMessage("Wallet not connected!");
-        return;
-      }
-
-      const mintKeypair = Keypair.generate();
-
-      // Calculate minimum balance for mint account rent exemption
-      const lamports = await getMinimumBalanceForRentExemptMint(connection);
-
-      // Create the transaction to create the mint account
-      const transaction = new Transaction().add(
-        SystemProgram.createAccount({
-          fromPubkey: wallet.publicKey!,
-          newAccountPubkey: mintKeypair.publicKey,
-          space: 82, // Mint account size (82 bytes)
-          lamports,
-          programId: TOKEN_PROGRAM_ID,
-        }),
-        createInitializeMint2Instruction(
-          mintKeypair.publicKey,
-          9, // Decimals
-          wallet.publicKey!,
-          wallet.publicKey!,
-          TOKEN_PROGRAM_ID
-        )
-      );
-
-      transaction.feePayer = wallet.publicKey!;
-      transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
-
-      // Partially sign the transaction with the mint keypair
-      transaction.partialSign(mintKeypair);
-
-      // Send the transaction
-      await wallet.sendTransaction(transaction, connection);
-
-      console.log(`Token mint created at ${mintKeypair.publicKey.toBase58()}`);
-      notifySuccess("Token created successfully!");
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        console.error("Error during token creation:", error.message);
-        setErrorMessage(`Transaction failed: ${error.message}`);
-      } else {
-        console.error("Unknown error occurred:", error);
-        setErrorMessage("An unknown error occurred.");
-      }
-      notifyError(`Error creating token: ${(error as Error).message}`);
+// Token creation function with image URL validation
+async function createToken() {
+  try {
+    // Check if the image URL is valid
+    if (!imageUrl || !isValidImageUrl(imageUrl)) {
+      notifyError("Enter a valid image URL");
+      return;
     }
+
+    if (!wallet.connected) {
+      setErrorMessage("Wallet not connected!");
+      return;
+    }
+
+    const mintKeypair = Keypair.generate();
+
+    // Calculate minimum balance for mint account rent exemption
+    const lamports = await getMinimumBalanceForRentExemptMint(connection);
+
+    // Create the transaction to create the mint account
+    const transaction = new Transaction().add(
+      SystemProgram.createAccount({
+        fromPubkey: wallet.publicKey!,
+        newAccountPubkey: mintKeypair.publicKey,
+        space: 82, // Mint account size (82 bytes)
+        lamports,
+        programId: TOKEN_PROGRAM_ID,
+      }),
+      createInitializeMint2Instruction(
+        mintKeypair.publicKey,
+        9, // Decimals
+        wallet.publicKey!,
+        wallet.publicKey!,
+        TOKEN_PROGRAM_ID
+      )
+    );
+
+    transaction.feePayer = wallet.publicKey!;
+    transaction.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
+
+    // Partially sign the transaction with the mint keypair
+    transaction.partialSign(mintKeypair);
+
+    // Send the transaction
+    await wallet.sendTransaction(transaction, connection);
+
+    console.log(`Token mint created at ${mintKeypair.publicKey.toBase58()}`);
+    notifySuccess("Token created successfully!");
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error("Error during token creation:", error.message);
+      setErrorMessage(`Transaction failed: ${error.message}`);
+    } else {
+      console.error("Unknown error occurred:", error);
+      setErrorMessage("An unknown error occurred.");
+    }
+    notifyError(`Error creating token: ${(error as Error).message}`);
   }
+}
+
+// Helper function to validate the image URL
+function isValidImageUrl(url: string) {
+  const urlPattern = /^(https?:\/\/.*\.(?:png|jpg|jpeg|gif|svg))$/i;
+  return urlPattern.test(url);
+}
+
 
   return (
     <Card className="min-w-6xl bg-transparent">
@@ -134,9 +148,9 @@ export function InputForm() {
                 value={imageUrl}
                 onChange={(e) => setImageUrl(e.target.value)}
               />
-              <p className="text-white text-sm">
+              {/* <p className="text-white text-sm">
                 <span className="text-red-600 font-extrabold">*</span> Enter a valid image URL
-              </p>
+              </p> */}
             </div>
           </div>
           {errorMessage && <p className="text-red-600 mt-2">{errorMessage}</p>}
